@@ -3,6 +3,7 @@
  * ----------------------------------------------------------------------------
  * A transparent, lightweight rule-based detector that analyzes URL features
  * and assigns calibrated risk scores (0-100) with explainable reasons.
+ * Pure ES5 compatible without downlevelIteration requirements.
  */
 
 export interface DetectionResult {
@@ -15,7 +16,7 @@ export interface DetectionResult {
 }
 
 // Well-known high-authority root domains (verified safe baselines)
-const KNOWN_SAFE_DOMAINS = new Set([
+const KNOWN_SAFE_DOMAINS: string[] = [
   'google.com',
   'microsoft.com',
   'github.com',
@@ -31,10 +32,10 @@ const KNOWN_SAFE_DOMAINS = new Set([
   'cloudflare.com',
   'stackoverflow.com',
   'vercel.com',
-]);
+];
 
 // Major target brands frequently targeted by phishing campaigns
-const MAJOR_BRANDS = [
+const MAJOR_BRANDS: string[] = [
   'paypal',
   'google',
   'microsoft',
@@ -52,7 +53,7 @@ const MAJOR_BRANDS = [
 ];
 
 // High-risk authentication / financial keywords
-const SUSPICIOUS_KEYWORDS = [
+const SUSPICIOUS_KEYWORDS: string[] = [
   'login',
   'verify',
   'account',
@@ -71,7 +72,7 @@ const SUSPICIOUS_KEYWORDS = [
 ];
 
 // Top-level domains frequently abused for disposable phishing campaigns
-const SUSPICIOUS_TLDS = new Set([
+const SUSPICIOUS_TLDS: string[] = [
   'xyz',
   'top',
   'tk',
@@ -91,7 +92,7 @@ const SUSPICIOUS_TLDS = new Set([
   'surf',
   'monster',
   'club',
-]);
+];
 
 export function analyzeUrl(rawUrl: string): DetectionResult {
   // 1. Normalize URL
@@ -132,7 +133,8 @@ export function analyzeUrl(rawUrl: string): DetectionResult {
 
   // Fast-path for verified genuine authority domains
   let isGenuineBrand = false;
-  for (const safeDomain of KNOWN_SAFE_DOMAINS) {
+  for (let i = 0; i < KNOWN_SAFE_DOMAINS.length; i++) {
+    const safeDomain = KNOWN_SAFE_DOMAINS[i];
     if (hostname === safeDomain || hostname.endsWith(`.${safeDomain}`)) {
       isGenuineBrand = true;
       break;
@@ -140,7 +142,7 @@ export function analyzeUrl(rawUrl: string): DetectionResult {
   }
 
   // If it's a genuine verified safe domain without suspicious tricks, return safe
-  if (isGenuineBrand && !fullLower.includes('@') && !hostname.includes('xn--')) {
+  if (isGenuineBrand && fullLower.indexOf('@') === -1 && hostname.indexOf('xn--') === -1) {
     return {
       url: rawUrl,
       risk_score: 5,
@@ -174,7 +176,7 @@ export function analyzeUrl(rawUrl: string): DetectionResult {
   // -------------------------------------------------------------
   // RULE 3: Punycode / IDN Homoglyphs (xn--)
   // -------------------------------------------------------------
-  if (hostname.includes('xn--')) {
+  if (hostname.indexOf('xn--') !== -1) {
     riskScore += 30;
     reasons.push('Punycode (xn--) detected: Possible internationalized homoglyph spoofing');
   }
@@ -183,8 +185,9 @@ export function analyzeUrl(rawUrl: string): DetectionResult {
   // RULE 4: Obvious Brand Impersonation Patterns
   // -------------------------------------------------------------
   let foundBrand: string | null = null;
-  for (const brand of MAJOR_BRANDS) {
-    if (fullLower.includes(brand)) {
+  for (let i = 0; i < MAJOR_BRANDS.length; i++) {
+    const brand = MAJOR_BRANDS[i];
+    if (fullLower.indexOf(brand) !== -1) {
       const officialDomain = `${brand}.com`;
       if (hostname !== officialDomain && !hostname.endsWith(`.${officialDomain}`)) {
         foundBrand = brand;
@@ -202,7 +205,7 @@ export function analyzeUrl(rawUrl: string): DetectionResult {
   // -------------------------------------------------------------
   const parts = hostname.split('.');
   const tld = parts.length > 1 ? parts[parts.length - 1] : '';
-  if (SUSPICIOUS_TLDS.has(tld)) {
+  if (SUSPICIOUS_TLDS.indexOf(tld) !== -1) {
     riskScore += 20;
     reasons.push(
       `Uses high-risk TLD (.${tld}) frequently leveraged by disposable phishing sites`
@@ -212,7 +215,14 @@ export function analyzeUrl(rawUrl: string): DetectionResult {
   // -------------------------------------------------------------
   // RULE 6: Sensitive Authentication / Financial Keywords
   // -------------------------------------------------------------
-  const foundKeywords = SUSPICIOUS_KEYWORDS.filter((kw) => fullLower.includes(kw));
+  const foundKeywords: string[] = [];
+  for (let i = 0; i < SUSPICIOUS_KEYWORDS.length; i++) {
+    const kw = SUSPICIOUS_KEYWORDS[i];
+    if (fullLower.indexOf(kw) !== -1) {
+      foundKeywords.push(kw);
+    }
+  }
+
   if (foundKeywords.length > 0) {
     if (foundKeywords.length >= 2 || foundBrand) {
       riskScore += 25;
@@ -240,7 +250,7 @@ export function analyzeUrl(rawUrl: string): DetectionResult {
   // -------------------------------------------------------------
   // RULE 8: Suspicious Symbols & Obfuscation
   // -------------------------------------------------------------
-  if (fullLower.includes('@')) {
+  if (fullLower.indexOf('@') !== -1) {
     riskScore += 25;
     reasons.push("Contains '@' symbol, a common tactic to disguise actual destination");
   }
@@ -253,7 +263,7 @@ export function analyzeUrl(rawUrl: string): DetectionResult {
     );
   }
 
-  if (path.includes('//')) {
+  if (path.indexOf('//') !== -1) {
     riskScore += 10;
     reasons.push("Path contains double slashes ('//') indicating possible open redirect");
   }

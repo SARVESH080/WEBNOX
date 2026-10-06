@@ -1,6 +1,6 @@
 /**
  * API client to connect the Next.js frontend with the Next.js /api/analyze serverless route.
- * Works seamlessly both locally on localhost:3000 and when deployed to Vercel.
+ * Works seamlessly both locally on localhost:3000 and when deployed to Vercel without vercel.json.
  */
 
 export interface BackendAnalyzeRequest {
@@ -19,7 +19,10 @@ export interface BackendAnalyzeResponse {
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export async function analyzeUrlWithBackend(url: string): Promise<BackendAnalyzeResponse> {
-  const endpoint = `${API_BASE_URL}/analyze`.replace(/\/+/g, '/').replace(':/', '://');
+  const endpoint = API_BASE_URL.startsWith('http')
+    ? `${API_BASE_URL.replace(/\/+$/, '')}/analyze`
+    : '/api/analyze';
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -30,7 +33,7 @@ export async function analyzeUrlWithBackend(url: string): Promise<BackendAnalyze
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Server error (${response.status})`);
+    throw new Error(errorData.detail || errorData.error || `Server error (${response.status})`);
   }
 
   return response.json();
