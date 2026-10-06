@@ -53,11 +53,13 @@ def root():
 
 
 @app.get("/health")
+@app.get("/api/health")
 def health():
     return {"status": "ok"}
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
+@app.post("/api/analyze", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest):
     """
     Receives a website URL, runs the rule-based phishing risk engine,
